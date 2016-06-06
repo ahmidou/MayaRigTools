@@ -1,2 +1,2 @@
-# MayaRigTools
-Some scripts to get a rigging workflow closer to the Softimage one
+# PickObjects
+This module was inspired by the Softimage PickObject() command.
