@@ -5,7 +5,7 @@ http://nathanhorne.com/?p=485
 Event filter installation example:
 https://groups.google.com/d/msg/python_inside_maya/LwmKyqp8MW8/pSa0gRKuKHQJ
 """
-
+from maya import cmds
 import maya.api.OpenMaya as om2
 import maya.OpenMaya as om
 import maya.api.OpenMayaUI as omui
@@ -20,33 +20,72 @@ import shiboken
 # https://groups.google.com/d/msg/python_inside_maya/LwmKyqp8MW8/pSa0gRKuKHQJ
 #
 class MouseEventFilter(QtCore.QObject):
-    def __init__(self, loopEvent, label=None):
+    def __init__(self, loopEvent, currentTool, label=None):
         super(MouseEventFilter, self).__init__()
-
+        self.currentTool = currentTool
         self.event = loopEvent
-        self.__label = label
+        self.typeFilter = None
         self.pickedObjects = om.MSelectionList()
+        self.colorData = {}
 
         if cmds.popupMenu("dummyMenu", exists=True):
             cmds.deleteUI("dummyMenu")
         cmds.popupMenu("dummyMenu", parent='viewPanes', button=1)
         
+
+    def hilite(self, picked):
+        #list = []
+        #self.pickedObjects.getSelectionStrings(list)
+        #cmds.hilite( list, toggle=True )
+        #
+        om.MGlobal.setHiliteList(self.pickedObjects)
+        """if not picked.isEmpty():
+            node = om2.MFnDependencyNode(picked.getDependNode(0))
+            oe =  node.findPlug("overrideEnabled", False)
+            os =  node.findPlug("overrideShading",False)
+            c = node.findPlug("overrideColor",False)
+            oc = node.findPlug("overrideRGBColors",False)
+            oe.setBool(True)
+            os.setBool(False)
+            oc.setBool(0)
+            c.setInt(21)"""
+
+
+    def unHilite(self):
+        pass
+        #list = []
+        #om.MSelectionList().getSelectionStrings(list)
+        #cmds.hilite( list, toggle=True )
+        #
+        om.MGlobal.setHiliteList(om.MSelectionList())
         
     def eventFilter(self, obj, event):
-        print obj
-        typ = event.type()
-        #print typ
         if event.type() == event.Enter:
+            obj.grabKeyboard()
 
-        if event.type() == event.leave:
+        if event.type() == event.Leave:
+            obj.releaseKeyboard()
 
-        if event.type() == event.KeyPress:
+        if event.type() == event.KeyRelease:
             ctx = cmds.currentCtx()
-            print cmds.contextInfo(ctx, c=True)
+            currentTool = cmds.contextInfo(ctx, c=True)
+            if currentTool != self.currentTool or event.key() == QtCore.Qt.Key_Escape:
+                self.pickedObjects = None
+                obj.releaseKeyboard()
+                self.unHilite()
+                self.event.quit()
+            if event.key() == QtCore.Qt.Key_Enter:
+                obj.releaseKeyboard()
+                self.unHilite()
+                self.event.quit()
             
         if event.type() == event.MouseButtonPress:            
             if event.button() == Qt.MouseButton.MidButton:
                 # escape condition
+                if self.pickedObjects.isEmpty():
+                    self.pickedObjects = None
+                obj.releaseKeyboard()
+                self.unHilite()
                 self.event.quit()      
             else:
                 # Select what is under the mouse
@@ -62,7 +101,7 @@ class MouseEventFilter(QtCore.QObject):
 
                     if not picked.isEmpty():
                         self.pickedObjects.merge(picked)
-                        om.MGlobal.setHiliteList(self.pickedObjects)
+                        self.hilite(picked)
                         views = omui.M3dView
                         for i in range(views.numberOf3dViews()):
                             view = views.get3dView(i) 
@@ -74,14 +113,16 @@ class MouseEventFilter(QtCore.QObject):
 def pickObject():
     views = omui.M3dView
     viewCount = views.numberOf3dViews()
+    ctx = cmds.currentCtx()
+    currentTool =  cmds.contextInfo(ctx, c=True)
 
     loop = QEventLoop()
-    eventFilter = MouseEventFilter(loop)
+    eventFilter = MouseEventFilter(loop, currentTool)
     
     # add the eventFilter to all the viewports
     widgets = []
     for i in range(viewCount):
-        view = views.get3dView(i)   
+        view = views.get3dView(i)
         widget_ptr = view.widget()
         widget = wrapInstance(long(widget_ptr), QWidget)
         widget.setCursor(QCursor(Qt.PointingHandCursor))
@@ -91,13 +132,21 @@ def pickObject():
     
     # Cleanup
     picked =  eventFilter.pickedObjects 
-    om.MGlobal.setHiliteList(om.MSelectionList())
+    
     for widget in widgets:
         widget.unsetCursor()
-        widget.removeEventFilter(eventFilter) 
+        widget.removeEventFilter(eventFilter)
+        #widget.releaseKeyboard()
     eventFilter = None
     
     if cmds.popupMenu("dummyMenu", exists=True):
         cmds.deleteUI("dummyMenu")
 
     return picked
+
+"""import sys
+sys.path.append(r"D:\dev\AL_Maya\MayaRigTools\pickObject")
+
+import pickObject
+reload(pickObject)
+pickObject.pickObject()"""
