@@ -1,8 +1,10 @@
 # PickObjects
 This module was inspired by the Softimage PickObject() command.
-calling the function will block the script execution until and exit condition is met
-escape or changing tool will exit and return None
-MMB or enter will exit and return the picked objects
+calling the function will block the script execution until and exit condition is met.
+
+escape or changing tool will exit and return None.
+
+MMB or enter will exit and return the picked objects.
 
 usage:
 import pickObject
