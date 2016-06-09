@@ -153,6 +153,14 @@ def pickObject():
                 #print outliner.objectName() +" "+ outliner.metaObject().className()
                 outliner.installEventFilter(eventFilter)
                 widgets.append(outliner)
+    # add the help messages
+    
+    ptr = mui.MQtUtil.findControl("MayaWindow|toolBar3|MainHelpLineLayout|helpLineFrame|formLayout16|helpLine1")
+    helpLine = wrapInstance(long(ptr), QStatusBar)
+    message = QLabel("flop")
+    message.setMargin(helpLine.width()/3)
+    helpLine.addPermanentWidget(l)
+
 
     loop.exec_()
     
@@ -167,6 +175,8 @@ def pickObject():
     
     if cmds.popupMenu("dummyMenu", exists=True):
         cmds.deleteUI("dummyMenu")
+
+    helpLine.removeWidget(message)
 
     return picked
 
