@@ -8,6 +8,7 @@ https://groups.google.com/d/msg/python_inside_maya/LwmKyqp8MW8/pSa0gRKuKHQJ
 from maya import cmds
 import maya.api.OpenMaya as om2
 import maya.OpenMaya as om
+import maya.OpenMayaUI as mui
 import maya.api.OpenMayaUI as omui
 from PySide import QtGui, QtCore
 from PySide.QtCore import * 
@@ -80,14 +81,20 @@ class MouseEventFilter(QtCore.QObject):
                 self.event.quit()
             
         if event.type() == event.MouseButtonPress:            
-            if event.button() == Qt.MouseButton.MidButton:
+            if event.button() == Qt.MouseButton.RightButton:
                 # escape condition
                 if self.pickedObjects.isEmpty():
                     self.pickedObjects = None
                 obj.releaseKeyboard()
                 self.unHilite()
-                self.event.quit()      
+                self.event.quit()
+                return True 
+
             else:
+                pickedName = None
+                if obj.metaObject().className() == "TpanelDagOutliner":
+                    pickedName = cmds.hitTest( obj.objectName(), event.x(), event.y() )[0]
+                    print "HIT: " + pickedName
                 # Select what is under the mouse
                 hit = cmds.dagObjectHit(mn="dummyMenu")
                 if hit == True:
@@ -96,6 +103,8 @@ class MouseEventFilter(QtCore.QObject):
                     pickedName = mItem.replace("...", "")
                     print "HIT: " + pickedName
                     cmds.popupMenu("dummyMenu", edit=True, deleteAllItems=True)
+
+                if pickedName != None:
                     picked = om.MSelectionList()
                     picked.add(pickedName)
 
@@ -106,13 +115,17 @@ class MouseEventFilter(QtCore.QObject):
                         for i in range(views.numberOf3dViews()):
                             view = views.get3dView(i) 
                             view.refresh()
-
+                    return True
+                return False
+        else:
+            return False
         return False
     
 
 def pickObject():
     views = omui.M3dView
     viewCount = views.numberOf3dViews()
+    outlinerPanels =cmds.getPanel(typ='outlinerPanel')
     ctx = cmds.currentCtx()
     currentTool =  cmds.contextInfo(ctx, c=True)
 
@@ -128,6 +141,19 @@ def pickObject():
         widget.setCursor(QCursor(Qt.PointingHandCursor))
         widget.installEventFilter(eventFilter)
         widgets.append(widget)
+
+    # add the eventFilter to all the outliners
+    for panel in outlinerPanels:
+        ptr = mui.MQtUtil.findControl(panel)
+        outPanel = wrapInstance(long(ptr), QObject)
+        regex = QRegExp("outlinerPanel.*")
+        outliners =  outPanel.findChildren(QtGui.QWidget, regex)
+        for outliner in outliners:
+            if outliner.metaObject().className() == "TpanelDagOutliner":
+                #print outliner.objectName() +" "+ outliner.metaObject().className()
+                outliner.installEventFilter(eventFilter)
+                widgets.append(outliner)
+
     loop.exec_()
     
     # Cleanup
